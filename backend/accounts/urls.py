@@ -1,4 +1,4 @@
-# Path: backend/accounts/urls.py (make sure this file exists and contains these urls)
+# Path: backend/accounts/urls.py
 from django.urls import path
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .views import RegisterView, UserDetailView, UserListView
