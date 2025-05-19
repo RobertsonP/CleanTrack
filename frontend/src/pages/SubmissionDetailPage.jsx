@@ -36,6 +36,13 @@ const SubmissionDetailPage = () => {
       try {
         setLoading(true);
         
+        // Check if the ID is a special route
+        if (id === 'create' || id === 'no-locations') {
+          setError(t('errors.submissionNotFound'));
+          setLoading(false);
+          return;
+        }
+        
         const data = await submissionService.getSubmissionById(id);
         setSubmission(data);
         

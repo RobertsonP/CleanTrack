@@ -6,13 +6,13 @@ import {
   Calendar, 
   CheckCircle, 
   ClipboardList, 
-  Clock, 
   MapPin, 
   UserCheck, 
   ArrowRight,
   Activity,
   AlertTriangle,
-  Plus
+  Plus,
+  Clock
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import DashboardLayout from '../components/layout/DashboardLayout';
@@ -53,24 +53,33 @@ const DashboardPage = () => {
         };
         let locationsData = [];
         
-        // Use Promise.allSettled to handle errors for individual requests
-        const [todaySubmissionsResult, statsResult, locationsResult] = await Promise.allSettled([
-          submissionService.getTodaySubmissions(),
-          submissionService.getSubmissionStats(),
-          locationService.getAllLocations()
-        ]);
-        
-        // Extract data from results, handling errors gracefully
-        if (todaySubmissionsResult.status === 'fulfilled') {
-          todayData = todaySubmissionsResult.value;
+        try {
+          // Try to get today's submissions
+          const todayResponse = await submissionService.getTodaySubmissions();
+          todayData = todayResponse || [];
+        } catch (error) {
+          console.error('Error fetching today submissions:', error);
+          // Continue with empty data
         }
         
-        if (statsResult.status === 'fulfilled') {
-          statsData = statsResult.value;
+        try {
+          // Try to get stats - this is the failing endpoint
+          const statsResponse = await submissionService.getSubmissionStats();
+          if (statsResponse) {
+            statsData = statsResponse;
+          }
+        } catch (error) {
+          console.error('Error fetching stats:', error);
+          // Continue with default stats
         }
         
-        if (locationsResult.status === 'fulfilled') {
-          locationsData = locationsResult.value.results || [];
+        try {
+          // Try to get locations
+          const locationsResponse = await locationService.getAllLocations();
+          locationsData = locationsResponse.results || [];
+        } catch (error) {
+          console.error('Error fetching locations:', error);
+          // Continue with empty locations
         }
         
         setTodaySubmissions(todayData);
@@ -178,6 +187,28 @@ const DashboardPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Create Location Button */}
+      {locations.length === 0 && user?.role === 'admin' && (
+        <div className="mb-8 p-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+          <div className="flex flex-col items-center text-center">
+            <AlertTriangle className="h-12 w-12 text-yellow-500 mb-3" />
+            <p className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+              {t('locations.noLocations', 'No locations available')}
+            </p>
+            <p className="text-gray-600 dark:text-gray-300 mb-4">
+              {t('submissions.noLocationsAdminMessage', 'You need to create at least one location before you can start submitting cleaning reports.')}
+            </p>
+            <Link 
+              to="/locations/new"
+              className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              {t('locations.createFirst', 'Create your first location')}
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Recent Activity & Locations */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

@@ -16,6 +16,11 @@ const submissionService = {
   // Get a submission by ID
   getSubmissionById: async (id) => {
     try {
+      // Check if id is a special route like 'create' or 'no-locations'
+      if (id === 'create' || id === 'no-locations') {
+        throw new Error(`Invalid submission ID: ${id}`);
+      }
+      
       const response = await api.get(`/cleanings/submissions/${id}/`);
       return response.data;
     } catch (error) {

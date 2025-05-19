@@ -116,6 +116,11 @@ const LocationsPage = () => {
       setDeleteLoading(false);
     }
   };
+
+  // Navigate to create location page
+  const handleCreateLocation = () => {
+    navigate('/locations/new');
+  };
   
   if (loading) return <DashboardLayout><Loading /></DashboardLayout>;
   if (error) return <DashboardLayout><Error message={error} /></DashboardLayout>;
@@ -128,13 +133,13 @@ const LocationsPage = () => {
           {t('locations.title')}
         </h1>
         {user?.role === 'admin' && (
-          <Link
-            to="/locations/new"
+          <button
+            onClick={handleCreateLocation}
             className="mt-4 sm:mt-0 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium flex items-center"
           >
             <Plus className="h-5 w-5 mr-2" />
             {t('locations.addNew')}
-          </Link>
+          </button>
         )}
       </div>
 
@@ -215,7 +220,7 @@ const LocationsPage = () => {
                         to={`/tracker/${location.id}`}
                         className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-indigo-700 bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-900/20 dark:text-indigo-400 dark:hover:bg-indigo-900/30"
                       >
-                        {t('common.view')}
+                        Create Submission
                       </Link>
                       
                       {user?.role === 'admin' && (
@@ -247,13 +252,13 @@ const LocationsPage = () => {
                     
                     {user?.role === 'admin' && !searchQuery && (
                       <div className="mt-4">
-                        <Link
-                          to="/locations/new"
+                        <button
+                          onClick={handleCreateLocation}
                           className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
                         >
                           <Plus className="h-4 w-4 mr-2" />
                           {t('locations.addNew')}
-                        </Link>
+                        </button>
                       </div>
                     )}
                   </td>

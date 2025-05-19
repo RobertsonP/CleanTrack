@@ -12,12 +12,10 @@ import {
   Users,
   Moon,
   Sun,
-  ChevronDown,
-  Plus
+  ChevronDown
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
-import locationService from '../../services/locationService';
 
 const DashboardLayout = ({ children }) => {
   const { t } = useLanguage();
@@ -29,26 +27,9 @@ const DashboardLayout = ({ children }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
-  const [locationDropdownOpen, setLocationDropdownOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(
     localStorage.getItem('darkMode') === 'true'
   );
-  const [locations, setLocations] = useState([]);
-
-  // Fetch locations for the dropdown
-  useEffect(() => {
-    const fetchLocations = async () => {
-      try {
-        const response = await locationService.getAllLocations();
-        setLocations(response.results || []);
-      } catch (error) {
-        console.error('Error fetching locations:', error);
-        setLocations([]);
-      }
-    };
-    
-    fetchLocations();
-  }, []);
 
   // Toggle dark mode
   const toggleDarkMode = () => {
@@ -72,7 +53,7 @@ const DashboardLayout = ({ children }) => {
     }
   }, [darkMode]);
 
-  // Navigation items
+  // Navigation items - KEEP LOCATIONS
   const navItems = [
     {
       path: '/dashboard',
@@ -84,7 +65,7 @@ const DashboardLayout = ({ children }) => {
       path: '/locations',
       label: t('nav.locations'),
       icon: MapPin,
-      requireAdmin: true
+      requireAdmin: false
     },
     {
       path: '/submissions',
@@ -139,82 +120,6 @@ const DashboardLayout = ({ children }) => {
                     {item.label}
                   </Link>
                 ))}
-
-                {/* Create Dropdown */}
-                <div className="relative inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-medium text-gray-500 dark:text-gray-300 cursor-pointer group">
-                  <div 
-                    className="flex items-center"
-                    onClick={() => setLocationDropdownOpen(!locationDropdownOpen)}
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    {t('nav.create')}
-                    <ChevronDown className="h-4 w-4 ml-1" />
-                  </div>
-                  
-                  {/* Dropdown Menu */}
-                  {locationDropdownOpen && (
-                    <div className="absolute top-full left-0 mt-1 w-56 rounded-md shadow-lg bg-white dark:bg-gray-700 ring-1 ring-black ring-opacity-5 z-10">
-                      <div className="py-1" role="menu" aria-orientation="vertical">
-                        {user?.role === 'admin' && (
-                          <Link
-                            to="/locations/new"
-                            className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600"
-                            role="menuitem"
-                            onClick={() => setLocationDropdownOpen(false)}
-                          >
-                            <MapPin className="h-4 w-4 inline mr-2" />
-                            {t('locations.addNew')}
-                          </Link>
-                        )}
-                        
-                        {/* Divider if both options are visible */}
-                        {user?.role === 'admin' && (
-                          <div className="border-t border-gray-100 dark:border-gray-600 my-1"></div>
-                        )}
-
-                        <div className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200">
-                          {t('submissions.createNew')}
-                        </div>
-                        
-                        <div className="max-h-60 overflow-y-auto">
-                          {locations && locations.length > 0 ? (
-                            locations.map(loc => (
-                              <Link
-                                key={loc.id}
-                                to={`/tracker/${loc.id}`}
-                                className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 pl-8"
-                                role="menuitem"
-                                onClick={() => setLocationDropdownOpen(false)}
-                              >
-                                {loc.name}
-                              </Link>
-                            ))
-                          ) : (
-                            <div className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400 pl-8">
-                              {user?.role === 'admin' ? (
-                                <Link 
-                                  to="/locations/new"
-                                  className="text-blue-600 hover:text-blue-800 dark:text-blue-400 hover:underline"
-                                  onClick={() => setLocationDropdownOpen(false)}
-                                >
-                                  {t('locations.createFirst')}
-                                </Link>
-                              ) : (
-                                <Link 
-                                  to="/submissions/create"
-                                  className="text-gray-500 dark:text-gray-400"
-                                  onClick={() => setLocationDropdownOpen(false)}
-                                >
-                                  {t('submissions.noLocations')}
-                                </Link>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
               </div>
             </div>
 
@@ -347,78 +252,6 @@ const DashboardLayout = ({ children }) => {
                   </div>
                 </Link>
               ))}
-              
-              {/* Mobile create new submission */}
-              <div className="block pl-3 pr-4 py-2 border-l-4 border-transparent">
-                <div className="flex items-center justify-between">
-                  <div className="text-gray-600 dark:text-gray-300 flex items-center">
-                    <Plus className="h-5 w-5 mr-2" />
-                    {t('nav.create')}
-                  </div>
-                  <button 
-                    onClick={() => setLocationDropdownOpen(!locationDropdownOpen)}
-                    className="p-1"
-                  >
-                    <ChevronDown className={`h-5 w-5 text-gray-400 transition-transform ${locationDropdownOpen ? 'rotate-180' : ''}`} />
-                  </button>
-                </div>
-                
-                {locationDropdownOpen && (
-                  <div className="mt-2 space-y-1 pl-7">
-                    {user?.role === 'admin' && (
-                      <Link
-                        to="/locations/new"
-                        className="block py-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
-                        onClick={() => {
-                          setLocationDropdownOpen(false);
-                          setMobileMenuOpen(false);
-                        }}
-                      >
-                        {t('locations.addNew')}
-                      </Link>
-                    )}
-                    
-                    <div className="py-1 text-gray-600 dark:text-gray-300">
-                      {t('submissions.createNew')}:
-                    </div>
-                    
-                    <div className="max-h-40 overflow-y-auto">
-                      {locations && locations.length > 0 ? (
-                        locations.map(loc => (
-                          <Link
-                            key={loc.id}
-                            to={`/tracker/${loc.id}`}
-                            className="block py-1 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white pl-4"
-                            onClick={() => {
-                              setLocationDropdownOpen(false);
-                              setMobileMenuOpen(false);
-                            }}
-                          >
-                            {loc.name}
-                          </Link>
-                        ))
-                      ) : (
-                        <div className="pl-4 py-1 text-gray-500 dark:text-gray-400 italic">
-                          {user?.role === 'admin' ? (
-                            <Link 
-                              to="/locations/new"
-                              className="text-blue-600 hover:text-blue-800 dark:text-blue-400 hover:underline"
-                              onClick={() => {
-                                setLocationDropdownOpen(false);
-                                setMobileMenuOpen(false);
-                              }}
-                            >
-                              {t('locations.createFirst')}
-                            </Link>
-                          ) : (
-                            t('submissions.noLocations')
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
               
               {/* Mobile language selector */}
               <div className="pl-3 pr-4 py-2 border-l-4 border-transparent">
