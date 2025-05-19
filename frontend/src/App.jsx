@@ -1,4 +1,4 @@
-// In App.jsx
+// frontend/src/App.jsx
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
@@ -53,4 +53,17 @@ const App = () => {
         <Route path="/locations/new" element={<PrivateRoute element={<LocationFormPage />} requireAdmin={true} />} />
         
         {/* Submissions routes */}
-        <Route path="/submissions" element={<PrivateRoute
+        <Route path="/submissions" element={<PrivateRoute element={<SubmissionsPage />} />} />
+        <Route path="/submissions/:id" element={<PrivateRoute element={<SubmissionDetailPage />} />} />
+        
+        {/* Tracker route for creating submissions */}
+        <Route path="/tracker/:id" element={<PrivateRoute element={<TrackerPage />} />} />
+
+        {/* 404 route */}
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
+    </Router>
+  );
+};
+
+export default App;

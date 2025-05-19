@@ -1,9 +1,11 @@
 // frontend/src/pages/TrackerPage.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Camera, Star, ChevronDown, ChevronUp, ArrowLeft, Send } from 'lucide-react';
+import { Camera, ChevronDown, ChevronUp, ArrowLeft, Send } from 'lucide-react';
 import DashboardLayout from '../components/layout/DashboardLayout';
-import api from '../services/api';
+import axios from 'axios';
+
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
 
 const TrackerPage = () => {
   const { id } = useParams();
@@ -29,13 +31,26 @@ const TrackerPage = () => {
       try {
         setLoading(true);
         
+        // Get the auth token
+        const token = localStorage.getItem('token');
+        if (!token) {
+          throw new Error("Authentication required");
+        }
+        
         // Get location details
-        const locationResponse = await api.get(`/cleanings/locations/${id}/`);
+        const locationResponse = await axios.get(`${API_URL}/cleanings/locations/${id}/`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
         setLocation(locationResponse.data);
         
         // Get checklist items for this location
-        const checklistResponse = await api.get('/cleanings/checklist-items/', {
-          params: { location: id }
+        const checklistResponse = await axios.get(`${API_URL}/cleanings/checklist-items/`, {
+          params: { location: id },
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
         });
         
         const items = checklistResponse.data.results || [];
@@ -139,6 +154,12 @@ const TrackerPage = () => {
       setSubmitting(true);
       setError(null);
       
+      // Get the auth token
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error("Authentication required");
+      }
+      
       // Prepare the submission data structure
       const formData = new FormData();
       formData.append('location', id);
@@ -166,9 +187,10 @@ const TrackerPage = () => {
       });
       
       // Submit the form
-      await api.post('/cleanings/submissions/', formData, {
+      await axios.post(`${API_URL}/cleanings/submissions/`, formData, {
         headers: {
-          'Content-Type': 'multipart/form-data'
+          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${token}`
         }
       });
       
@@ -291,7 +313,7 @@ const TrackerPage = () => {
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Rating
                   </label>
-                  <div className="flex space-x-1">
+                  <div className="flex flex-wrap gap-1">
                     {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((star) => (
                       <button
                         key={star}
@@ -374,7 +396,7 @@ const TrackerPage = () => {
             type="button"
             onClick={handleSubmit}
             disabled={submitting}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg flex items-center justify-center"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {submitting ? (
               <span>Submitting...</span>
