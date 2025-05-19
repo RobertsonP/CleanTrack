@@ -1,4 +1,4 @@
-// Path: frontend/src/pages/SubmissionsPage.jsx
+// frontend/src/pages/SubmissionsPage.jsx
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
@@ -6,13 +6,15 @@ import {
   Search,
   AlertTriangle,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Plus
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import Loading from '../components/common/Loading';
 import Error from '../components/common/Error';
 import submissionService from '../services/submissionService';
+import locationService from '../services/locationService';
 import { useLanguage } from '../contexts/LanguageContext';
 
 const SubmissionsPage = () => {
@@ -20,15 +22,31 @@ const SubmissionsPage = () => {
   const { user } = useAuth();
   
   const [submissions, setSubmissions] = useState([]);
+  const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [dateFilter, setDateFilter] = useState('');
+  const [locationFilter, setLocationFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
+    fetchData();
+  }, []);
+  
+  useEffect(() => {
     fetchSubmissions();
-  }, [dateFilter, currentPage]);
+  }, [dateFilter, locationFilter, currentPage]);
+  
+  const fetchData = async () => {
+    try {
+      // Fetch locations for filter dropdown
+      const locationsResponse = await locationService.getAllLocations();
+      setLocations(locationsResponse.results || []);
+    } catch (error) {
+      console.error('Error fetching locations:', error);
+    }
+  };
   
   const fetchSubmissions = async () => {
     try {
@@ -41,6 +59,10 @@ const SubmissionsPage = () => {
       
       if (dateFilter) {
         filters.date = dateFilter;
+      }
+      
+      if (locationFilter) {
+        filters.location = locationFilter;
       }
       
       const response = await submissionService.getAllSubmissions(filters);
@@ -59,6 +81,17 @@ const SubmissionsPage = () => {
   const handleDateChange = (e) => {
     setDateFilter(e.target.value);
     setCurrentPage(1); // Reset to first page when filter changes
+  };
+  
+  const handleLocationChange = (e) => {
+    setLocationFilter(e.target.value);
+    setCurrentPage(1); // Reset to first page when filter changes
+  };
+  
+  const clearFilters = () => {
+    setDateFilter('');
+    setLocationFilter('');
+    setCurrentPage(1);
   };
   
   const goToNextPage = () => {
@@ -83,12 +116,40 @@ const SubmissionsPage = () => {
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
           {t('submissions.title', 'Submissions')}
         </h1>
+        <div className="mt-4 sm:mt-0 flex flex-wrap gap-2">
+          {locations.length > 0 && (
+            <div className="relative inline-block">
+              <select
+                onChange={(e) => {
+                  const locationId = e.target.value;
+                  if (locationId) {
+                    window.location.href = `/tracker/${locationId}`;
+                  }
+                }}
+                className="appearance-none bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 pr-8 rounded-lg font-medium"
+                defaultValue=""
+              >
+                <option value="" disabled>
+                  {t('submissions.createNew')}
+                </option>
+                {locations.map(location => (
+                  <option key={location.id} value={location.id}>
+                    {location.name}
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-white">
+                <Plus className="h-5 w-5" />
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Filters */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
-          <div className="flex-1">
+        <div className="flex flex-col sm:flex-row sm:items-end gap-4">
+          <div className="w-full sm:w-auto">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               {t('submissions.date', 'Date')}
             </label>
@@ -104,6 +165,33 @@ const SubmissionsPage = () => {
               />
             </div>
           </div>
+          
+          {locations.length > 0 && (
+            <div className="w-full sm:w-auto">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {t('submissions.location', 'Location')}
+              </label>
+              <select
+                value={locationFilter}
+                onChange={handleLocationChange}
+                className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white"
+              >
+                <option value="">{t('common.all')}</option>
+                {locations.map(location => (
+                  <option key={location.id} value={location.id}>
+                    {location.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          
+          <button
+            onClick={clearFilters}
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
+          >
+            {t('common.clearFilters')}
+          </button>
         </div>
       </div>
 
@@ -178,10 +266,34 @@ const SubmissionsPage = () => {
                     <div className="flex flex-col items-center justify-center">
                       <AlertTriangle className="h-12 w-12 text-yellow-500 mb-3" />
                       <p>
-                        {dateFilter
-                          ? t('submissions.noSubmissionsForDate', 'No submissions found for this date')
+                        {dateFilter || locationFilter
+                          ? t('submissions.noSubmissionsFiltered', 'No submissions found for the selected filters')
                           : t('submissions.noSubmissions', 'No submissions found')}
                       </p>
+                      
+                      {locations.length > 0 && (
+                        <div className="mt-4">
+                          <select
+                            onChange={(e) => {
+                              const locationId = e.target.value;
+                              if (locationId) {
+                                window.location.href = `/tracker/${locationId}`;
+                              }
+                            }}
+                            className="appearance-none bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 pr-8 rounded-lg font-medium"
+                            defaultValue=""
+                          >
+                            <option value="" disabled>
+                              {t('submissions.createNew')}
+                            </option>
+                            {locations.map(location => (
+                              <option key={location.id} value={location.id}>
+                                {location.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -211,8 +323,7 @@ const SubmissionsPage = () => {
                 className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white ${
                   currentPage === totalPages
                     ? 'opacity-50 cursor-not-allowed'
-                    : 'hover:bg-gray-50'
-                }`}
+                    : 'hover:bg-gray-50'}`}
               >
                 {t('common.next', 'Next')}
               </button>

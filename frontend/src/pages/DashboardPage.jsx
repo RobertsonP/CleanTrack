@@ -11,7 +11,8 @@ import {
   UserCheck, 
   ArrowRight,
   Activity,
-  AlertTriangle
+  AlertTriangle,
+  Plus
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import DashboardLayout from '../components/layout/DashboardLayout';
@@ -26,7 +27,12 @@ const DashboardPage = () => {
   const { user } = useAuth();
 
   const [todaySubmissions, setTodaySubmissions] = useState([]);
-  const [stats, setStats] = useState(null);
+  const [stats, setStats] = useState({
+    submission_count: 0,
+    avg_completion_rate: 0,
+    active_users: 0,
+    submissions_by_location: []
+  });
   const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -37,35 +43,35 @@ const DashboardPage = () => {
         setLoading(true);
         setError(null);
         
-        // Fetch data from API in parallel
+        // Default empty values for stats
+        let todayData = [];
+        let statsData = {
+          submission_count: 0,
+          avg_completion_rate: 0,
+          active_users: 0,
+          submissions_by_location: []
+        };
+        let locationsData = [];
+        
+        // Use Promise.allSettled to handle errors for individual requests
         const [todaySubmissionsResult, statsResult, locationsResult] = await Promise.allSettled([
-          submissionService.getTodaySubmissions().catch(err => {
-            console.error('Error fetching today submissions:', err);
-            return [];
-          }),
-          submissionService.getSubmissionStats().catch(err => {
-            console.error('Error fetching stats:', err);
-            return {
-              submission_count: 0,
-              avg_completion_rate: 0,
-              active_users: 0
-            };
-          }),
-          locationService.getAllLocations().catch(err => {
-            console.error('Error fetching locations:', err);
-            return { results: [] };
-          })
+          submissionService.getTodaySubmissions(),
+          submissionService.getSubmissionStats(),
+          locationService.getAllLocations()
         ]);
         
         // Extract data from results, handling errors gracefully
-        const todayData = todaySubmissionsResult.status === 'fulfilled' ? todaySubmissionsResult.value : [];
-        const statsData = statsResult.status === 'fulfilled' ? statsResult.value : {
-          submission_count: 0,
-          avg_completion_rate: 0,
-          active_users: 0
-        };
-        const locationsData = locationsResult.status === 'fulfilled' ? 
-          (locationsResult.value.results || []) : [];
+        if (todaySubmissionsResult.status === 'fulfilled') {
+          todayData = todaySubmissionsResult.value;
+        }
+        
+        if (statsResult.status === 'fulfilled') {
+          statsData = statsResult.value;
+        }
+        
+        if (locationsResult.status === 'fulfilled') {
+          locationsData = locationsResult.value.results || [];
+        }
         
         setTodaySubmissions(todayData);
         setStats(statsData);
@@ -106,7 +112,7 @@ const DashboardPage = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {/* Total Submissions */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-5">
-          <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
                 {t('dashboard.stats.total', 'Total Submissions')}
@@ -186,7 +192,7 @@ const DashboardPage = () => {
             </Link>
           </div>
 
-          {todaySubmissions.length > 0 ? (
+          {todaySubmissions && todaySubmissions.length > 0 ? (
             <div className="space-y-4">
               {todaySubmissions.slice(0, 5).map((submission) => (
                 <div key={submission.id} className="flex items-start p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
@@ -225,9 +231,22 @@ const DashboardPage = () => {
            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
              {t('dashboard.locations', 'Locations')}
            </h2>
-           <Link to="/locations" className="text-sm text-blue-600 dark:text-blue-400 flex items-center">
-             {t('common.viewAll', 'View All')} <ArrowRight className="h-4 w-4 ml-1" />
-           </Link>
+           <div className="flex space-x-2">
+             {user?.role === 'admin' && (
+               <Link 
+                 to="/locations/new" 
+                 className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1 rounded"
+               >
+                 <Plus className="h-5 w-5" />
+               </Link>
+             )}
+             <Link 
+               to="/locations" 
+               className="text-sm text-blue-600 dark:text-blue-400 flex items-center"
+             >
+               {t('common.viewAll', 'View All')} <ArrowRight className="h-4 w-4 ml-1" />
+             </Link>
+           </div>
          </div>
 
          {locations.length > 0 ? (
@@ -254,6 +273,15 @@ const DashboardPage = () => {
            <div className="flex flex-col items-center justify-center py-8 text-gray-500 dark:text-gray-400">
              <AlertTriangle className="h-12 w-12 text-yellow-500 mb-3" />
              <p>{t('dashboard.noLocations', 'No locations available')}</p>
+             {user?.role === 'admin' && (
+               <Link 
+                 to="/locations/new"
+                 className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md flex items-center"
+               >
+                 <Plus className="h-4 w-4 mr-2" />
+                 {t('locations.addNew', 'Add Location')}
+               </Link>
+             )}
            </div>
          )}
        </div>

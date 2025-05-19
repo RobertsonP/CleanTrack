@@ -1,207 +1,230 @@
 // frontend/src/pages/TrackerPage.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
-import { 
-  Camera, 
-  Star, 
-  Calendar, 
-  Clock, 
-  CheckCircle,
-  XCircle,
-  AlertTriangle,
-  Send,
-  ChevronDown,
-  ChevronUp,
-  HelpCircle,
-  Loader
-} from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+import { Camera, Star, ChevronDown, ChevronUp, ArrowLeft, Send } from 'lucide-react';
 import DashboardLayout from '../components/layout/DashboardLayout';
-import Loading from '../components/common/Loading';
-import Error from '../components/common/Error';
-import locationService from '../services/locationService';
-import trackerService from '../services/trackerService';
-import submissionService from '../services/submissionService';
+import api from '../services/api';
 
 const TrackerPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { t } = useTranslation();
-  const { user } = useAuth();
   
   const [location, setLocation] = useState(null);
-  const [tasks, setTasks] = useState([]);
-  const [completedTasks, setCompletedTasks] = useState({});
+  const [checklistItems, setChecklistItems] = useState([]);
   const [ratings, setRatings] = useState({});
   const [notes, setNotes] = useState({});
   const [photos, setPhotos] = useState({});
-  const [photoNames, setPhotoNames] = useState({});
-  const [expandedSections, setExpandedSections] = useState({});
+  const [photoFiles, setPhotoFiles] = useState({});
+  const [expandedItems, setExpandedItems] = useState({});
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [success, setSuccess] = useState(false);
   
   const fileInputRefs = useRef({});
-
+  
+  // Fetch location and checklist items
   useEffect(() => {
-    const fetchTrackerData = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
         
-        // Fetch location and tasks data
-        const locationData = await locationService.getLocationById(id);
-        const tasksData = await trackerService.getTasksByLocation(id);
+        // Get location details
+        const locationResponse = await api.get(`/cleanings/locations/${id}/`);
+        setLocation(locationResponse.data);
         
-        setLocation(locationData);
-        setTasks(tasksData);
+        // Get checklist items for this location
+        const checklistResponse = await api.get('/cleanings/checklist-items/', {
+          params: { location: id }
+        });
         
-        // Initialize tracking states
-        const initialCompletedTasks = {};
+        const items = checklistResponse.data.results || [];
+        setChecklistItems(items);
+        
+        // Initialize state for each item
         const initialRatings = {};
         const initialNotes = {};
         const initialPhotos = {};
-        const initialPhotoNames = {};
-        const initialExpandedSections = {};
+        const initialPhotoFiles = {};
+        const initialExpanded = {};
         
-        tasksData.forEach((task) => {
-          initialCompletedTasks[task.id] = false;
-          initialRatings[task.id] = 5; // Default rating
-          initialNotes[task.id] = '';
-          initialPhotos[task.id] = null;
-          initialPhotoNames[task.id] = '';
-          initialExpandedSections[task.id] = false;
+        items.forEach(item => {
+          initialRatings[item.id] = 5; // Default rating
+          initialNotes[item.id] = '';
+          initialPhotos[item.id] = [];
+          initialPhotoFiles[item.id] = [];
+          initialExpanded[item.id] = false;
         });
         
-        setCompletedTasks(initialCompletedTasks);
         setRatings(initialRatings);
         setNotes(initialNotes);
         setPhotos(initialPhotos);
-        setPhotoNames(initialPhotoNames);
-        setExpandedSections(initialExpandedSections);
+        setPhotoFiles(initialPhotoFiles);
+        setExpandedItems(initialExpanded);
         
         setLoading(false);
       } catch (error) {
-        console.error('Error fetching tracker data:', error);
-        setError(t('errors.somethingWentWrong'));
+        console.error('Error fetching data:', error);
+        setError("Failed to load location data. Please try again.");
         setLoading(false);
       }
     };
-
-    fetchTrackerData();
-  }, [id, t]);
+    
+    fetchData();
+  }, [id]);
   
-  const toggleSection = (taskId) => {
-    setExpandedSections(prev => ({
+  // Toggle item expansion
+  const toggleItem = (itemId) => {
+    setExpandedItems(prev => ({
       ...prev,
-      [taskId]: !prev[taskId]
+      [itemId]: !prev[itemId]
     }));
   };
   
-  const handleCheckTask = (taskId) => {
-    setCompletedTasks(prev => ({
-      ...prev,
-      [taskId]: !prev[taskId]
-    }));
-  };
-  
-  const handleRatingChange = (taskId, rating) => {
+  // Handle rating change
+  const handleRatingChange = (itemId, rating) => {
     setRatings(prev => ({
       ...prev,
-      [taskId]: rating
+      [itemId]: rating
     }));
   };
   
-  const handleNotesChange = (taskId, value) => {
+  // Handle notes change
+  const handleNotesChange = (itemId, event) => {
     setNotes(prev => ({
       ...prev,
-      [taskId]: value
+      [itemId]: event.target.value
     }));
   };
   
-  const handlePhotoClick = (taskId) => {
-    if (fileInputRefs.current[taskId]) {
-      fileInputRefs.current[taskId].click();
+  // Handle photo upload
+  const handlePhotoClick = (itemId) => {
+    if (fileInputRefs.current[itemId]) {
+      fileInputRefs.current[itemId].click();
     }
   };
   
-  const handlePhotoChange = (taskId, e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setPhotos(prev => ({
-          ...prev,
-          [taskId]: event.target.result
-        }));
-        setPhotoNames(prev => ({
-          ...prev,
-          [taskId]: file.name
-        }));
-      };
-      reader.readAsDataURL(file);
+  const handlePhotoChange = (itemId, event) => {
+    if (event.target.files && event.target.files.length > 0) {
+      const files = Array.from(event.target.files);
+      
+      // Update photo previews
+      const previews = files.map(file => URL.createObjectURL(file));
+      setPhotos(prev => ({
+        ...prev,
+        [itemId]: [...(prev[itemId] || []), ...previews]
+      }));
+      
+      // Store the actual files for upload
+      setPhotoFiles(prev => ({
+        ...prev,
+        [itemId]: [...(prev[itemId] || []), ...files]
+      }));
     }
   };
   
+  // Calculate completion percentage
+  const getCompletionPercentage = () => {
+    if (!checklistItems || checklistItems.length === 0) return 0;
+    
+    const totalItems = checklistItems.length * 10; // Maximum possible points
+    const totalRatings = Object.values(ratings).reduce((sum, rating) => sum + rating, 0);
+    
+    return Math.round((totalRatings / totalItems) * 100);
+  };
+  
+  // Submit the form
   const handleSubmit = async () => {
     try {
       setSubmitting(true);
+      setError(null);
       
-      // Prepare submission data
-      const submissionData = {
-        location: id,
-        user: user.id,
-        date: new Date().toISOString().split('T')[0],
-        time: new Date().toISOString().split('T')[1].slice(0, 8),
-        task_submissions: Object.keys(completedTasks).map(taskId => ({
-          task: taskId,
-          completed: completedTasks[taskId],
-          rating: ratings[taskId],
-          notes: notes[taskId],
-          photo: photos[taskId]
-        }))
-      };
+      // Prepare the submission data structure
+      const formData = new FormData();
+      formData.append('location', id);
+      formData.append('date', new Date().toISOString().split('T')[0]);
       
-      // Send submission to API
-      await submissionService.createSubmission(submissionData);
+      // Prepare task ratings data
+      const taskRatings = checklistItems.map(item => ({
+        checklist_item: item.id,
+        rating: ratings[item.id] || 0,
+        notes: notes[item.id] || ''
+      }));
       
-      setSubmitSuccess(true);
+      formData.append('task_ratings_data', JSON.stringify(taskRatings));
       
-      // Reset form after 2 seconds and navigate back to dashboard
+      // Add photos
+      checklistItems.forEach((item, taskIndex) => {
+        if (photoFiles[item.id] && photoFiles[item.id].length > 0) {
+          photoFiles[item.id].forEach((file, fileIndex) => {
+            formData.append(
+              `task_ratings_data[${taskIndex}].uploaded_images[${fileIndex}]`, 
+              file
+            );
+          });
+        }
+      });
+      
+      // Submit the form
+      await api.post('/cleanings/submissions/', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      
+      setSuccess(true);
+      
+      // Redirect after a short delay
       setTimeout(() => {
-        navigate('/dashboard');
+        navigate('/submissions');
       }, 2000);
       
     } catch (error) {
-      console.error('Error submitting tracker data:', error);
-      setError(t('errors.submissionFailed'));
+      console.error('Error submitting form:', error);
+      setError("Failed to submit. Please try again.");
       setSubmitting(false);
     }
   };
   
-  const calculateCompletionPercentage = () => {
-    const totalTasks = tasks.length;
-    if (totalTasks === 0) return 0;
-    
-    const completedCount = Object.values(completedTasks).filter(Boolean).length;
-    return Math.round((completedCount / totalTasks) * 100);
-  };
-
-  if (loading) return <DashboardLayout><Loading /></DashboardLayout>;
-  if (error) return <DashboardLayout><Error message={error} /></DashboardLayout>;
-  if (submitSuccess) {
+  if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex flex-col items-center justify-center py-16">
-          <div className="p-4 rounded-full bg-green-100 text-green-600 mb-4">
-            <CheckCircle className="h-12 w-12" />
-          </div>
-          <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
-            {t('tracker.submissionSuccess')}
+        <div className="flex justify-center items-center h-64">
+          <div className="text-gray-500 dark:text-gray-400">Loading...</div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+  
+  if (error && !success) {
+    return (
+      <DashboardLayout>
+        <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-md text-red-700 dark:text-red-400 mb-4">
+          {error}
+        </div>
+        <button
+          onClick={() => navigate('/submissions')}
+          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+        >
+          Back to Submissions
+        </button>
+      </DashboardLayout>
+    );
+  }
+  
+  if (success) {
+    return (
+      <DashboardLayout>
+        <div className="bg-green-50 dark:bg-green-900/20 p-8 rounded-md text-center">
+          <div className="text-green-600 dark:text-green-400 text-3xl mb-4">✓</div>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+            Submission Successful!
           </h2>
-          <p className="text-gray-600 dark:text-gray-300">
-            {t('tracker.redirecting')}
+          <p className="text-gray-600 dark:text-gray-300 mb-4">
+            Your cleaning report has been submitted.
+          </p>
+          <p className="text-gray-600 dark:text-gray-300 text-sm">
+            Redirecting...
           </p>
         </div>
       </DashboardLayout>
@@ -211,169 +234,131 @@ const TrackerPage = () => {
   return (
     <DashboardLayout>
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-              {location?.name}
-            </h1>
-            <div className="flex items-center mt-2 text-sm text-gray-600 dark:text-gray-300">
-              <Calendar className="h-4 w-4 mr-1" />
-              <span>
-                {new Date().toLocaleDateString(undefined, { 
-                  weekday: 'long', 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric' 
-                })}
-              </span>
-              <Clock className="h-4 w-4 ml-4 mr-1" />
-              <span>
-                {new Date().toLocaleTimeString(undefined, { 
-                  hour: '2-digit', 
-                  minute: '2-digit' 
-                })}
-              </span>
-            </div>
+      <div className="flex items-center mb-6">
+        <button
+          type="button"
+          onClick={() => navigate('/submissions')}
+          className="mr-4 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700"
+        >
+          <ArrowLeft className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+        </button>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+          {location?.name || 'Create Submission'}
+        </h1>
+      </div>
+      
+      {/* Completion Indicator */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 mb-6">
+        <div className="flex items-center justify-between">
+          <div className="text-gray-700 dark:text-gray-300 font-medium">
+            Completion: {getCompletionPercentage()}%
           </div>
-          <div className="mt-4 sm:mt-0">
-            <div className="bg-gray-100 dark:bg-gray-700 rounded-full h-4 w-32 sm:w-48 overflow-hidden">
-              <div 
-                className="bg-blue-600 h-full rounded-full"
-                style={{ width: `${calculateCompletionPercentage()}%` }}
-              ></div>
-            </div>
-            <div className="mt-1 text-xs text-center text-gray-600 dark:text-gray-300">
-              {calculateCompletionPercentage()}% {t('tracker.complete')}
-            </div>
+          <div className="w-48 bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+            <div 
+              className="bg-blue-600 h-2.5 rounded-full"
+              style={{ width: `${getCompletionPercentage()}%` }}
+            ></div>
           </div>
         </div>
       </div>
-
-      {/* Tasks List */}
-      <div className="space-y-4 mb-8">
-        {tasks.map((task) => (
-          <div key={task.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-            {/* Task Header */}
+      
+      {/* Checklist Items */}
+      <div className="space-y-4 mb-20">
+        {checklistItems.map((item) => (
+          <div key={item.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
+            {/* Item Header */}
             <div 
-              className="p-4 flex justify-between items-center cursor-pointer"
-              onClick={() => toggleSection(task.id)}
+              className="p-4 cursor-pointer"
+              onClick={() => toggleItem(item.id)}
             >
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div 
-                    className={`w-6 h-6 rounded-full flex items-center justify-center border ${
-                      completedTasks[task.id] 
-                        ? "bg-green-100 border-green-500 text-green-600" 
-                        : "border-gray-300 dark:border-gray-600"
-                    }`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleCheckTask(task.id);
-                    }}
-                  >
-                    {completedTasks[task.id] && <CheckCircle className="h-5 w-5" />}
-                  </div>
-                </div>
-                <div className="ml-3">
-                  <h3 className="text-base font-medium text-gray-900 dark:text-white">
-                    {task.name}
-                  </h3>
-                </div>
-              </div>
-              <div>
-                {expandedSections[task.id] ? (
-                  <ChevronUp className="h-5 w-5 text-gray-500" />
+              <div className="flex justify-between items-center">
+                <h3 className="font-medium text-gray-900 dark:text-white">
+                  {item.title_en}
+                </h3>
+                {expandedItems[item.id] ? (
+                  <ChevronUp className="h-5 w-5 text-gray-500 dark:text-gray-400" />
                 ) : (
-                  <ChevronDown className="h-5 w-5 text-gray-500" />
+                  <ChevronDown className="h-5 w-5 text-gray-500 dark:text-gray-400" />
                 )}
               </div>
             </div>
             
-            {/* Task Details */}
-            {expandedSections[task.id] && (
-              <div className="px-4 pb-4 pt-1 border-t border-gray-100 dark:border-gray-700">
-                {/* Rating */}
+            {/* Item Details (when expanded) */}
+            {expandedItems[item.id] && (
+              <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+                {/* Rating Stars */}
                 <div className="mb-4">
-                  <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {t('tracker.rating')}
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Rating
                   </label>
-                  <div className="flex">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <Star
+                  <div className="flex space-x-1">
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((star) => (
+                      <button
                         key={star}
-                        className={`h-6 w-6 cursor-pointer ${
-                          star <= ratings[task.id]
-                            ? "text-yellow-400 fill-yellow-400"
-                            : "text-gray-300 dark:text-gray-600"
+                        type="button"
+                        onClick={() => handleRatingChange(item.id, star)}
+                        className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                          ratings[item.id] >= star
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                         }`}
-                        onClick={() => handleRatingChange(task.id, star)}
-                      />
+                      >
+                        {star}
+                      </button>
                     ))}
                   </div>
                 </div>
                 
                 {/* Notes */}
                 <div className="mb-4">
-                  <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {t('tracker.notes')}
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Notes
                   </label>
                   <textarea
-                    value={notes[task.id]}
-                    onChange={(e) => handleNotesChange(task.id, e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                    value={notes[item.id] || ''}
+                    onChange={(e) => handleNotesChange(item.id, e)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white"
+                    placeholder="Add notes here..."
                     rows="3"
-                    placeholder={t('tracker.notesPlaceholder')}
                   ></textarea>
                 </div>
                 
-                {/* Photo Upload */}
+                {/* Photos */}
                 <div>
-                  <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {t('tracker.photo')}
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Photos
                   </label>
+                  
                   <input
                     type="file"
-                    ref={(el) => (fileInputRefs.current[task.id] = el)}
-                    accept="image/*"
+                    ref={el => fileInputRefs.current[item.id] = el}
                     className="hidden"
-                    onChange={(e) => handlePhotoChange(task.id, e)}
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => handlePhotoChange(item.id, e)}
                   />
                   
-                  {photos[task.id] ? (
-                    <div className="relative">
-                      <img 
-                        src={photos[task.id]} 
-                        alt={t('tracker.uploadedPhoto')} 
-                        className="w-full h-40 object-cover rounded-lg" 
-                      />
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setPhotos(prev => ({...prev, [task.id]: null}));
-                          setPhotoNames(prev => ({...prev, [task.id]: ''}));
-                        }}
-                        className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full"
-                      >
-                        <XCircle className="h-5 w-5" />
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => handlePhotoClick(task.id)}
-                      className="w-full flex items-center justify-center px-4 py-3 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                    >
-                      <Camera className="h-5 w-5 mr-2 text-gray-500 dark:text-gray-400" />
-                      <span className="text-sm text-gray-500 dark:text-gray-400">
-                        {t('tracker.uploadPhoto')}
-                      </span>
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => handlePhotoClick(item.id)}
+                    className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 flex items-center mb-2"
+                  >
+                    <Camera className="h-5 w-5 mr-2" />
+                    Upload Photo
+                  </button>
                   
-                  {photoNames[task.id] && (
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      {photoNames[task.id]}
-                    </p>
+                  {photos[item.id] && photos[item.id].length > 0 && (
+                    <div className="grid grid-cols-3 gap-2 mt-2">
+                      {photos[item.id].map((photo, index) => (
+                        <div key={index} className="relative">
+                          <img
+                            src={photo}
+                            alt={`Photo ${index + 1}`}
+                            className="h-20 w-full object-cover rounded-md"
+                          />
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
               </div>
@@ -381,26 +366,26 @@ const TrackerPage = () => {
           </div>
         ))}
       </div>
-
-      {/* Submit Button */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4 md:relative md:bg-transparent md:dark:bg-transparent md:border-0">
-        <button
-          onClick={handleSubmit}
-          disabled={submitting}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium flex items-center justify-center disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors"
-        >
-          {submitting ? (
-            <>
-              <Loader className="animate-spin h-5 w-5 mr-2" />
-              {t('tracker.submitting')}
-            </>
-          ) : (
-            <>
-              <Send className="h-5 w-5 mr-2" />
-              {t('tracker.submit')}
-            </>
-          )}
-        </button>
+      
+      {/* Submit Button (Fixed at bottom) */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={submitting}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg flex items-center justify-center"
+          >
+            {submitting ? (
+              <span>Submitting...</span>
+            ) : (
+              <>
+                <Send className="h-5 w-5 mr-2" />
+                Submit Tracker
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </DashboardLayout>
   );

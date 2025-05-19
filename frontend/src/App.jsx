@@ -1,14 +1,13 @@
-// Path: frontend/src/App.jsx
+// In App.jsx
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import LocationsPage from './pages/LocationsPage';
-import LocationDetailPage from './pages/LocationDetailPage';
+import LocationFormPage from './pages/LocationFormPage';
 import SubmissionsPage from './pages/SubmissionsPage';
 import SubmissionDetailPage from './pages/SubmissionDetailPage';
-import UsersPage from './pages/UsersPage';
 import TrackerPage from './pages/TrackerPage';
 import NotFoundPage from './pages/NotFoundPage';
 import Loading from './components/common/Loading';
@@ -21,17 +20,14 @@ const PrivateRoute = ({ element, requireAdmin = false }) => {
     return <Loading />;
   }
 
-  // Not authenticated -> redirect to login
   if (!isAuthenticated) {
     return <Navigate to="/login" />;
   }
 
-  // Requires admin but user is not admin -> redirect to dashboard
   if (requireAdmin && user?.role !== 'admin') {
     return <Navigate to="/dashboard" />;
   }
 
-  // All checks passed -> render the requested page
   return element;
 };
 
@@ -49,44 +45,12 @@ const App = () => {
         <Route path="/login" element={<LoginPage />} />
 
         {/* Private routes */}
-        <Route
-          path="/"
-          element={<Navigate to="/dashboard" replace />}
-        />
-        <Route
-          path="/dashboard"
-          element={<PrivateRoute element={<DashboardPage />} />}
-        />
-        <Route
-          path="/locations"
-          element={<PrivateRoute element={<LocationsPage />} requireAdmin={true} />}
-        />
-        <Route
-          path="/locations/:id"
-          element={<PrivateRoute element={<LocationDetailPage />} requireAdmin={true} />}
-        />
-        <Route
-          path="/submissions"
-          element={<PrivateRoute element={<SubmissionsPage />} />}
-        />
-        <Route
-          path="/submissions/:id"
-          element={<PrivateRoute element={<SubmissionDetailPage />} />}
-        />
-        <Route
-          path="/users"
-          element={<PrivateRoute element={<UsersPage />} requireAdmin={true} />}
-        />
-        <Route
-          path="/tracker/:id"
-          element={<PrivateRoute element={<TrackerPage />} />}
-        />
-
-        {/* 404 route */}
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
-    </Router>
-  );
-};
-
-export default App;
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/dashboard" element={<PrivateRoute element={<DashboardPage />} />} />
+        
+        {/* Location routes */}
+        <Route path="/locations" element={<PrivateRoute element={<LocationsPage />} />} />
+        <Route path="/locations/new" element={<PrivateRoute element={<LocationFormPage />} requireAdmin={true} />} />
+        
+        {/* Submissions routes */}
+        <Route path="/submissions" element={<PrivateRoute
