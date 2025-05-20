@@ -1,13 +1,16 @@
 // frontend/src/pages/TrackerPage.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Camera, ChevronDown, ChevronUp, ArrowLeft, Send } from 'lucide-react';
+import { Camera, ChevronDown, ChevronUp, ArrowLeft, Send, Loader } from 'lucide-react';
 import DashboardLayout from '../components/layout/DashboardLayout';
-import axios from 'axios';
-
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+import locationService from '../services/locationService';
+import submissionService from '../services/submissionService';
+import { useLanguage } from '../contexts/LanguageContext';
+import Loading from '../components/common/Loading';
+import Error from '../components/common/Error';
 
 const TrackerPage = () => {
+  const { t } = useLanguage();
   const { id } = useParams();
   const navigate = useNavigate();
   
@@ -30,30 +33,16 @@ const TrackerPage = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        
-        // Get the auth token
-        const token = localStorage.getItem('token');
-        if (!token) {
-          throw new Error("Authentication required");
-        }
+        setError(null);
         
         // Get location details
-        const locationResponse = await axios.get(`${API_URL}/cleanings/locations/${id}/`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        setLocation(locationResponse.data);
+        const locationData = await locationService.getLocationById(id);
+        setLocation(locationData);
         
         // Get checklist items for this location
-        const checklistResponse = await axios.get(`${API_URL}/cleanings/checklist-items/`, {
-          params: { location: id },
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
+        const checklistResponse = await locationService.getChecklistItems(id);
         
-        const items = checklistResponse.data.results || [];
+        const items = checklistResponse.results || [];
         setChecklistItems(items);
         
         // Initialize state for each item
@@ -154,45 +143,20 @@ const TrackerPage = () => {
       setSubmitting(true);
       setError(null);
       
-      // Get the auth token
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error("Authentication required");
-      }
-      
       // Prepare the submission data structure
-      const formData = new FormData();
-      formData.append('location', id);
-      formData.append('date', new Date().toISOString().split('T')[0]);
-      
-      // Prepare task ratings data
-      const taskRatings = checklistItems.map(item => ({
-        checklist_item: item.id,
-        rating: ratings[item.id] || 0,
-        notes: notes[item.id] || ''
-      }));
-      
-      formData.append('task_ratings_data', JSON.stringify(taskRatings));
-      
-      // Add photos
-      checklistItems.forEach((item, taskIndex) => {
-        if (photoFiles[item.id] && photoFiles[item.id].length > 0) {
-          photoFiles[item.id].forEach((file, fileIndex) => {
-            formData.append(
-              `task_ratings_data[${taskIndex}].uploaded_images[${fileIndex}]`, 
-              file
-            );
-          });
-        }
-      });
+      const submissionData = {
+        location: id,
+        date: new Date().toISOString().split('T')[0],
+        task_ratings_data: checklistItems.map(item => ({
+          checklist_item: item.id,
+          rating: ratings[item.id] || 0,
+          notes: notes[item.id] || '',
+          uploaded_images: photoFiles[item.id] || []
+        }))
+      };
       
       // Submit the form
-      await axios.post(`${API_URL}/cleanings/submissions/`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      await submissionService.createSubmission(submissionData);
       
       setSuccess(true);
       
@@ -209,13 +173,7 @@ const TrackerPage = () => {
   };
   
   if (loading) {
-    return (
-      <DashboardLayout>
-        <div className="flex justify-center items-center h-64">
-          <div className="text-gray-500 dark:text-gray-400">Loading...</div>
-        </div>
-      </DashboardLayout>
-    );
+    return <DashboardLayout><Loading /></DashboardLayout>;
   }
   
   if (error && !success) {
@@ -240,13 +198,13 @@ const TrackerPage = () => {
         <div className="bg-green-50 dark:bg-green-900/20 p-8 rounded-md text-center">
           <div className="text-green-600 dark:text-green-400 text-3xl mb-4">✓</div>
           <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-            Submission Successful!
+            {t('tracker.submissionSuccess', 'Submission Successful!')}
           </h2>
           <p className="text-gray-600 dark:text-gray-300 mb-4">
-            Your cleaning report has been submitted.
+            {t('tracker.successMessage', 'Your cleaning report has been submitted.')}
           </p>
           <p className="text-gray-600 dark:text-gray-300 text-sm">
-            Redirecting...
+            {t('tracker.redirecting', 'Redirecting...')}
           </p>
         </div>
       </DashboardLayout>
@@ -273,7 +231,7 @@ const TrackerPage = () => {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 mb-6">
         <div className="flex items-center justify-between">
           <div className="text-gray-700 dark:text-gray-300 font-medium">
-            Completion: {getCompletionPercentage()}%
+            {t('tracker.completion', 'Completion')}: {getCompletionPercentage()}%
           </div>
           <div className="w-48 bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
             <div 
@@ -311,7 +269,7 @@ const TrackerPage = () => {
                 {/* Rating Stars */}
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Rating
+                    {t('tracker.rating', 'Rating')}
                   </label>
                   <div className="flex flex-wrap gap-1">
                     {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((star) => (
@@ -334,13 +292,13 @@ const TrackerPage = () => {
                 {/* Notes */}
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Notes
+                    {t('tracker.notes', 'Notes')}
                   </label>
                   <textarea
                     value={notes[item.id] || ''}
                     onChange={(e) => handleNotesChange(item.id, e)}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white"
-                    placeholder="Add notes here..."
+                    placeholder={t('tracker.notesPlaceholder', 'Add notes here...')}
                     rows="3"
                   ></textarea>
                 </div>
@@ -348,7 +306,7 @@ const TrackerPage = () => {
                 {/* Photos */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Photos
+                    {t('tracker.photo', 'Photo')}
                   </label>
                   
                   <input
@@ -366,7 +324,7 @@ const TrackerPage = () => {
                     className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 flex items-center mb-2"
                   >
                     <Camera className="h-5 w-5 mr-2" />
-                    Upload Photo
+                    {t('tracker.uploadPhoto', 'Upload Photo')}
                   </button>
                   
                   {photos[item.id] && photos[item.id].length > 0 && (
@@ -399,11 +357,14 @@ const TrackerPage = () => {
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {submitting ? (
-              <span>Submitting...</span>
+              <div className="flex items-center">
+                <Loader className="animate-spin h-5 w-5 mr-2" />
+                <span>{t('tracker.submitting', 'Submitting...')}</span>
+              </div>
             ) : (
               <>
                 <Send className="h-5 w-5 mr-2" />
-                Submit Tracker
+                {t('tracker.submit', 'Submit Tracker')}
               </>
             )}
           </button>

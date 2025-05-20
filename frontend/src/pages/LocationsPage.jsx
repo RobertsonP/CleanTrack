@@ -10,9 +10,7 @@ import {
   ChevronLeft,
   ChevronRight,
   AlertTriangle,
-  CheckCircle,
-  Loader,
-  X
+  Loader
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import DashboardLayout from '../components/layout/DashboardLayout';
@@ -116,11 +114,6 @@ const LocationsPage = () => {
       setDeleteLoading(false);
     }
   };
-
-  // Navigate to create location page
-  const handleCreateLocation = () => {
-    navigate('/locations/new');
-  };
   
   if (loading) return <DashboardLayout><Loading /></DashboardLayout>;
   if (error) return <DashboardLayout><Error message={error} /></DashboardLayout>;
@@ -132,15 +125,13 @@ const LocationsPage = () => {
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
           {t('locations.title')}
         </h1>
-        {user?.role === 'admin' && (
-          <button
-            onClick={handleCreateLocation}
-            className="mt-4 sm:mt-0 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium flex items-center"
-          >
-            <Plus className="h-5 w-5 mr-2" />
-            {t('locations.addNew')}
-          </button>
-        )}
+        <Link 
+          to="/locations/new"
+          className="mt-4 sm:mt-0 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium flex items-center"
+        >
+          <Plus className="h-5 w-5 mr-2" />
+          {t('locations.addNew')}
+        </Link>
       </div>
 
       {/* Search and Filters */}
@@ -250,17 +241,15 @@ const LocationsPage = () => {
                       ? t('locations.noSearchResults', { query: searchQuery })
                       : t('locations.noLocations')}
                     
-                    {user?.role === 'admin' && !searchQuery && (
-                      <div className="mt-4">
-                        <button
-                          onClick={handleCreateLocation}
-                          className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
-                        >
-                          <Plus className="h-4 w-4 mr-2" />
-                          {t('locations.addNew')}
-                        </button>
-                      </div>
-                    )}
+                    <div className="mt-4">
+                      <Link
+                        to="/locations/new"
+                        className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        {t('locations.addNew')}
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               )}

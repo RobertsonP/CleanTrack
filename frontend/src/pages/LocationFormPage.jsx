@@ -1,6 +1,6 @@
 // frontend/src/pages/LocationFormPage.jsx
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { 
   Plus, 
   Minus, 
@@ -11,11 +11,16 @@ import {
 } from 'lucide-react';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import locationService from '../services/locationService';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const LocationFormPage = () => {
+  const { t } = useLanguage();
   const navigate = useNavigate();
+  const { id } = useParams(); // Get location ID from URL if editing
+  const isEditMode = !!id;
   
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(false);
   const [error, setError] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -26,6 +31,45 @@ const LocationFormPage = () => {
     { title_en: '', title_am: '', title_ru: '' }
   ]);
   const [formErrors, setFormErrors] = useState({});
+  const [success, setSuccess] = useState(false);
+  
+  // Load location data if in edit mode
+  useEffect(() => {
+    const fetchLocationData = async () => {
+      if (isEditMode) {
+        try {
+          setInitialLoading(true);
+          
+          // Fetch location details
+          const locationData = await locationService.getLocationById(id);
+          setFormData({
+            name: locationData.name || '',
+            status: locationData.status || 'active',
+            description: locationData.description || ''
+          });
+          
+          // Fetch checklist items for this location
+          const checklistData = await locationService.getChecklistItems(id);
+          if (checklistData.results && checklistData.results.length > 0) {
+            setChecklistItems(checklistData.results.map(item => ({
+              id: item.id,
+              title_en: item.title_en || '',
+              title_am: item.title_am || '',
+              title_ru: item.title_ru || ''
+            })));
+          }
+          
+          setInitialLoading(false);
+        } catch (error) {
+          console.error('Error fetching location data:', error);
+          setError('Failed to load location data. Please try again.');
+          setInitialLoading(false);
+        }
+      }
+    };
+    
+    fetchLocationData();
+  }, [id, isEditMode]);
   
   const handleLocationChange = (e) => {
     const { name, value } = e.target;
@@ -82,38 +126,77 @@ const LocationFormPage = () => {
     
     try {
       setLoading(true);
+      setError(null);
       
-      // Step 1: Create the location
-      const locationResponse = await locationService.createLocation(formData);
-      
-      // Step 2: Create checklist items for this location
-      const locationId = locationResponse.id;
-      
-      // Create all checklist items
-      await Promise.all(
-        checklistItems.map(item => 
-          locationService.createChecklistItem({
-            ...item,
-            location: locationId
-          })
-        )
-      );
-      
-      // Success, redirect to locations page
-      navigate('/locations');
-      
+      if (isEditMode) {
+        // Update existing location
+        await locationService.updateLocation(id, formData);
+        
+        // Update checklist items
+        for (const item of checklistItems) {
+          if (item.id) {
+            // Update existing item
+            await locationService.updateChecklistItem(item.id, {
+              ...item,
+              location: id
+            });
+          } else {
+            // Create new item
+            await locationService.createChecklistItem({
+              ...item,
+              location: id
+            });
+          }
+        }
+        
+        setSuccess(true);
+        setTimeout(() => {
+          navigate('/locations');
+        }, 1500);
+      } else {
+        // Create new location
+        const locationResponse = await locationService.createLocation(formData);
+        
+        // Create checklist items for this location
+        const locationId = locationResponse.id;
+        
+        // Create all checklist items
+        await Promise.all(
+          checklistItems.map(item => 
+            locationService.createChecklistItem({
+              ...item,
+              location: locationId
+            })
+          )
+        );
+        
+        setSuccess(true);
+        setTimeout(() => {
+          navigate('/locations');
+        }, 1500);
+      }
     } catch (error) {
-      console.error('Error creating tracker:', error);
+      console.error('Error saving location:', error);
       
       if (error.response && error.response.data) {
         setFormErrors(error.response.data);
       } else {
-        setError('Failed to create tracker. Please try again.');
+        setError('Failed to save location. Please try again.');
       }
       
       setLoading(false);
     }
   };
+
+  if (initialLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex justify-center items-center h-64">
+          <Loader className="h-8 w-8 animate-spin text-blue-500" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -127,7 +210,7 @@ const LocationFormPage = () => {
             Back to Locations
           </button>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Create New Location
+            {isEditMode ? 'Edit Location' : 'Create New Location'}
           </h1>
         </div>
         
@@ -136,6 +219,17 @@ const LocationFormPage = () => {
             <div className="flex">
               <AlertTriangle className="h-5 w-5 text-red-400 mt-0.5 mr-3" />
               <span className="text-red-800 dark:text-red-300">{error}</span>
+            </div>
+          </div>
+        )}
+        
+        {success && (
+          <div className="mb-6 bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
+            <div className="flex">
+              <Save className="h-5 w-5 text-green-400 mt-0.5 mr-3" />
+              <span className="text-green-800 dark:text-green-300">
+                Location {isEditMode ? 'updated' : 'created'} successfully! Redirecting...
+              </span>
             </div>
           </div>
         )}
@@ -293,12 +387,12 @@ const LocationFormPage = () => {
               {loading ? (
                 <>
                   <Loader className="animate-spin h-4 w-4 mr-2" />
-                  Creating...
+                  {isEditMode ? 'Updating...' : 'Creating...'}
                 </>
               ) : (
                 <>
                   <Save className="h-4 w-4 mr-2" />
-                  Create Location
+                  {isEditMode ? 'Update Location' : 'Create Location'}
                 </>
               )}
             </button>

@@ -10,6 +10,7 @@ import SubmissionsPage from './pages/SubmissionsPage';
 import SubmissionDetailPage from './pages/SubmissionDetailPage';
 import TrackerPage from './pages/TrackerPage';
 import NotFoundPage from './pages/NotFoundPage';
+import UsersPage from './pages/UsersPage';
 import Loading from './components/common/Loading';
 
 // Private route wrapper
@@ -51,10 +52,14 @@ const App = () => {
         {/* Location routes */}
         <Route path="/locations" element={<PrivateRoute element={<LocationsPage />} />} />
         <Route path="/locations/new" element={<PrivateRoute element={<LocationFormPage />} requireAdmin={true} />} />
+        <Route path="/locations/:id" element={<PrivateRoute element={<LocationFormPage />} requireAdmin={true} />} />
         
         {/* Submissions routes */}
         <Route path="/submissions" element={<PrivateRoute element={<SubmissionsPage />} />} />
         <Route path="/submissions/:id" element={<PrivateRoute element={<SubmissionDetailPage />} />} />
+        
+        {/* Users routes */}
+        <Route path="/users" element={<PrivateRoute element={<UsersPage />} requireAdmin={true} />} />
         
         {/* Tracker route for creating submissions */}
         <Route path="/tracker/:id" element={<PrivateRoute element={<TrackerPage />} />} />

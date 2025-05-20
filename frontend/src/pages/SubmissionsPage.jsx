@@ -31,8 +31,7 @@ const SubmissionsPage = () => {
   const [locationFilter, setLocationFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [createSubmissionModalOpen, setCreateSubmissionModalOpen] = useState(false);
-
+  
   useEffect(() => {
     fetchData();
     fetchSubmissions();
@@ -112,18 +111,16 @@ const SubmissionsPage = () => {
       setCurrentPage(prev => prev - 1);
     }
   };
-
-  // Create submission by navigating to tracker with selected location
-  const handleCreateSubmission = (locationId) => {
-    if (locationId) {
-      navigate(`/tracker/${locationId}`);
+  
+  // SIMPLE DIRECT FUNCTION FOR ADDING SUBMISSIONS
+  const handleAddSubmission = () => {
+    if (locations.length > 0) {
+      // If locations exist, navigate to the first one's tracker
+      navigate(`/tracker/${locations[0].id}`);
+    } else {
+      // If no locations, navigate to create location page
+      navigate('/locations/new');
     }
-    setCreateSubmissionModalOpen(false);
-  };
-
-  // Create a new location if none available
-  const handleCreateLocation = () => {
-    navigate('/locations/new');
   };
 
   if (loading && locationsLoading) return <DashboardLayout><Loading /></DashboardLayout>;
@@ -137,7 +134,7 @@ const SubmissionsPage = () => {
           {t('submissions.title', 'Submissions')}
         </h1>
         <button
-          onClick={() => setCreateSubmissionModalOpen(true)}
+          onClick={handleAddSubmission}
           className="mt-4 sm:mt-0 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium flex items-center"
         >
           <Plus className="h-5 w-5 mr-2" />
@@ -150,7 +147,7 @@ const SubmissionsPage = () => {
         <div className="flex flex-col sm:flex-row sm:items-end gap-4">
           <div className="w-full sm:w-auto">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Date
+              {t('submissions.date', 'Date')}
             </label>
             <div className="relative rounded-md shadow-sm">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -168,14 +165,14 @@ const SubmissionsPage = () => {
           {locations.length > 0 && (
             <div className="w-full sm:w-auto">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Location
+                {t('submissions.location', 'Location')}
               </label>
               <select
                 value={locationFilter}
                 onChange={handleLocationChange}
                 className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white"
               >
-                <option value="">All</option>
+                <option value="">{t('common.all', 'All')}</option>
                 {locations.map(location => (
                   <option key={location.id} value={location.id}>
                     {location.name}
@@ -189,7 +186,7 @@ const SubmissionsPage = () => {
             onClick={clearFilters}
             className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
           >
-            Clear Filters
+            {t('common.clearFilters', 'Clear Filters')}
           </button>
         </div>
       </div>
@@ -201,19 +198,19 @@ const SubmissionsPage = () => {
             <thead className="bg-gray-50 dark:bg-gray-700">
               <tr>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Location
+                  {t('submissions.location', 'Location')}
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Staff
+                  {t('submissions.staff', 'Staff')}
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Date
+                  {t('submissions.date', 'Date')}
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Completion
+                  {t('submissions.completion', 'Completion')}
                 </th>
                 <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Actions
+                  {t('common.actions', 'Actions')}
                 </th>
               </tr>
             </thead>
@@ -254,7 +251,7 @@ const SubmissionsPage = () => {
                         to={`/submissions/${submission.id}`}
                         className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
                       >
-                        View
+                        {t('common.view', 'View')}
                       </Link>
                     </td>
                   </tr>
@@ -266,13 +263,13 @@ const SubmissionsPage = () => {
                       <AlertTriangle className="h-12 w-12 text-yellow-500 mb-3" />
                       <p>
                         {dateFilter || locationFilter
-                          ? 'No submissions found for the selected filters'
-                          : 'No submissions found'}
+                          ? t('submissions.noSubmissionsFiltered', 'No submissions found for the selected filters')
+                          : t('submissions.noSubmissions', 'No submissions found')}
                       </p>
                       
                       <div className="mt-4">
                         <button
-                          onClick={() => setCreateSubmissionModalOpen(true)}
+                          onClick={handleAddSubmission}
                           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium flex items-center"
                         >
                           <Plus className="h-5 w-5 mr-2" />
@@ -300,7 +297,7 @@ const SubmissionsPage = () => {
                     : 'hover:bg-gray-50'
                 }`}
               >
-                Previous
+                {t('common.previous', 'Previous')}
               </button>
               <button
                 onClick={goToNextPage}
@@ -310,13 +307,17 @@ const SubmissionsPage = () => {
                     ? 'opacity-50 cursor-not-allowed'
                     : 'hover:bg-gray-50'}`}
               >
-                Next
+                {t('common.next', 'Next')}
               </button>
             </div>
             <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm text-gray-700 dark:text-gray-300">
-                  Showing page {currentPage} of {totalPages}
+                  {t('common.pagination', {
+                    from: (currentPage - 1) * 10 + 1,
+                    to: Math.min(currentPage * 10, submissions.length),
+                    total: submissions.length
+                  })}
                 </p>
               </div>
               <div>
@@ -330,7 +331,7 @@ const SubmissionsPage = () => {
                         : 'hover:bg-gray-50 dark:hover:bg-gray-700'
                     }`}
                   >
-                    <span className="sr-only">Previous</span>
+                    <span className="sr-only">{t('common.previous', 'Previous')}</span>
                     <ChevronLeft className="h-5 w-5" />
                   </button>
                   
@@ -347,7 +348,7 @@ const SubmissionsPage = () => {
                         : 'hover:bg-gray-50 dark:hover:bg-gray-700'
                     }`}
                   >
-                    <span className="sr-only">Next</span>
+                    <span className="sr-only">{t('common.next', 'Next')}</span>
                     <ChevronRight className="h-5 w-5" />
                   </button>
                 </nav>
@@ -356,59 +357,6 @@ const SubmissionsPage = () => {
           </div>
         )}
       </div>
-
-      {/* Create Submission Modal */}
-      {createSubmissionModalOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-              Create New Submission
-            </h3>
-            
-            {locations.length > 0 ? (
-              <>
-                <p className="text-gray-600 dark:text-gray-300 mb-4">
-                  Select a location to create a new submission:
-                </p>
-                <div className="space-y-2 max-h-60 overflow-y-auto mb-6">
-                  {locations.map(location => (
-                    <button
-                      key={location.id}
-                      onClick={() => handleCreateSubmission(location.id)}
-                      className="w-full text-left block px-4 py-3 rounded-md text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                    >
-                      {location.name}
-                    </button>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <div className="py-4 text-center">
-                <AlertTriangle className="h-12 w-12 text-yellow-500 mx-auto mb-2" />
-                <p className="text-gray-600 dark:text-gray-300 mb-4">
-                  No locations available. Please create a location first.
-                </p>
-                <button
-                  onClick={handleCreateLocation}
-                  className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Location
-                </button>
-              </div>
-            )}
-            
-            <div className="flex justify-end">
-              <button
-                onClick={() => setCreateSubmissionModalOpen(false)}
-                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </DashboardLayout>
   );
 };

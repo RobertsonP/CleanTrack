@@ -27,10 +27,20 @@ const locationService = {
     return { success: true };
   },
   
-  // Add this new method for creating checklist items
+  // Checklist item operations
   createChecklistItem: async (itemData) => {
     const response = await api.post('/cleanings/checklist-items/', itemData);
     return response.data;
+  },
+  
+  updateChecklistItem: async (id, itemData) => {
+    const response = await api.put(`/cleanings/checklist-items/${id}/`, itemData);
+    return response.data;
+  },
+  
+  deleteChecklistItem: async (id) => {
+    await api.delete(`/cleanings/checklist-items/${id}/`);
+    return { success: true };
   },
   
   // Get checklist items by location
@@ -40,6 +50,12 @@ const locationService = {
     });
     return response.data;
   },
+  
+  // Get location statistics
+  getLocationStats: async (id, days = 30) => {
+    const response = await api.get(`/cleanings/locations/${id}/stats/?days=${days}`);
+    return response.data;
+  }
 };
 
 export default locationService;
